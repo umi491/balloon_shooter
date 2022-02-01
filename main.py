@@ -11,33 +11,28 @@
 #
 #   ---------------------------------------------------------------------------------------
 
-# TO DO
-# Cannon movement
-# Balloon movement
-# Bullet movement
-# Detecting collision
-# Updating the number of misses
-# Handling end of game
-
-from tkinter.tix import BALLOON
 import pygame
 import os
 from random import randint
-
+pygame.font.init()
 
 # Defines
 WIDTH, HEIGHT = 827, 570
 FPS = 60
 PLAYER_VEL = 5
-BALLOON_VEL = 2
-BULLET_VEL = 20
+BALLOON_VEL = 1
+BULLET_VEL = 10
 RANDOM_VAL = 25
+WHITE = (255, 255, 255)
 
 PLAYER_WIDTH, PLAYER_HEIGHT = 100, 100
 BALLOON_WIDTH, BALLOON_HEIGHT = 80, 80
+BULLET_WIDTH, BULLET_HEIGHT = 20, 20
 
 BALLOON_HIT = pygame.USEREVENT
-WHITE = (255, 255, 255)
+GAME_OVER_FONT = pygame.font.SysFont('comicsans', 40)
+
+miss_count = 0
 
 # Background
 BACKGROUND = pygame.image.load(os.path.join('assets', 'background.jpg'))
@@ -47,9 +42,15 @@ BACKGROUND = pygame.transform.scale(BACKGROUND, (827, 570))
 PLAYER_IMAGE = pygame.image.load(os.path.join('assets', 'pea_shooter.png'))
 PLAYER_IMAGE = pygame.transform.scale(PLAYER_IMAGE, (PLAYER_WIDTH, PLAYER_HEIGHT))
 
+# Bullet
+BULLET_IMAGE = pygame.image.load(os.path.join('assets', 'bullet.png'))
+BULLET_IMAGE = pygame.transform.scale(BULLET_IMAGE, (BULLET_WIDTH, BULLET_HEIGHT))
+
 # Balloon
 BALLOON_IMAGE = pygame.image.load(os.path.join('assets', 'pokeball.png'))
 BALLOON_IMAGE = pygame.transform.scale(BALLOON_IMAGE, (BALLOON_WIDTH, BALLOON_HEIGHT))
+
+balloon_img = pygame.sprite.Group()
 
 # Initialise screen
 pygame.init()
@@ -62,14 +63,18 @@ def randomiser():
     if randint(0, 5) == 0:
         return True
 
-def draw_screen(player, balloon, store_bullets):
+def draw_screen(player, store_bullets):
     SCREEN.blit(BACKGROUND, (0, 0))
     SCREEN.blit(PLAYER_IMAGE, (player.x, player.y))
-    balloon.draw()
-    balloon.update()
 
     for bullet in store_bullets:
         pygame.draw.rect(SCREEN, WHITE, bullet)
+
+def draw_winner(miss_count):
+    game_over_text = GAME_OVER_FONT.render("Game Over! Number of misses: " + str(miss_count - 1), 1, WHITE)
+    SCREEN.blit(game_over_text, (WIDTH/2 - game_over_text.get_width()/2, 10))
+    pygame.display.update()
+    pygame.time.delay(5000)
 
 class Balloon(pygame.sprite.Sprite):
     def __init__(self, vector):
@@ -96,6 +101,9 @@ class Balloon(pygame.sprite.Sprite):
         self.count += 1
         self.vector = (angle,z)
 
+    def returnrect(self):
+        return self.rect
+
     def calcnewpos(self, rect, vector):
         (angle, z) = vector
         if self.count >= RANDOM_VAL:
@@ -111,10 +119,11 @@ def handle_player_movement(press_keys, player):
     if press_keys[pygame.K_DOWN] and player.y + PLAYER_VEL + player.height < HEIGHT - 40: # DOWN
         player.y += PLAYER_VEL
 
-def handle_bullets(store_bullets, player, balloon):
+def handle_bullets(store_bullets, balloon):
     for bullet in store_bullets:
         bullet.x += BULLET_VEL
-        if balloon.rect.left == bullet.right:
+        balloon_rect = balloon.returnrect()
+        if balloon_rect.colliderect(bullet):
             pygame.event.post(pygame.event.Event(BALLOON_HIT))
             store_bullets.remove(bullet)
 
@@ -124,8 +133,10 @@ def main():
     # Initialise player and balloon
     player = pygame.Rect(20, 400, PLAYER_WIDTH, PLAYER_HEIGHT)
     balloon = Balloon((1, BALLOON_VEL))
+    balloon_img.add(balloon)
 
     store_bullets = []
+    miss_count = 0
     
     run = True
     while run:
@@ -134,19 +145,27 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
-            if event.type == pygame.KEYDOWN:
+            if event.type == pygame.KEYDOWN:  
                 if event.key == pygame.K_SPACE:
-                    bullet = pygame.Rect(player.x + player.width, player.y + player.height//2 - 2, 10, 5)
+                    bullet = pygame.Rect(player.x + player.width, player.y + player.height//2 - 2, 20, 20)
                     store_bullets.append(bullet)
+                    miss_count += 1
         
+        if event.type == BALLOON_HIT:
+            draw_winner(miss_count)
+            break
+
         # Player movement
         press_keys = pygame.key.get_pressed()
         handle_player_movement(press_keys, player)
 
-        handle_bullets(store_bullets, player, balloon)
+        handle_bullets(store_bullets, balloon)
+
         
         # Display assets on screen
-        draw_screen(player, balloon, store_bullets)
+        draw_screen(player, store_bullets)
+        balloon_img.update()
+        balloon_img.draw(SCREEN)
         pygame.display.flip()
         
     pygame.quit()

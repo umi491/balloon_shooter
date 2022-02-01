@@ -1,3 +1,0 @@
-random starting position
-y velocity
-timer to 
