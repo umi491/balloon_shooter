@@ -19,60 +19,91 @@
 # Updating the number of misses
 # Handling end of game
 
+from tkinter.tix import BALLOON
 import pygame
 import os
-from random import seed, randint
-from time import time
+from random import randint
 
 
-# defines
+# Defines
 WIDTH, HEIGHT = 827, 570
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
 FPS = 60
 PLAYER_VEL = 5
-
-RANDOM_CHANCE = 5
-FRAMES = 25
+BALLOON_VEL = 2
+BULLET_VEL = 20
+RANDOM_VAL = 25
 
 PLAYER_WIDTH, PLAYER_HEIGHT = 100, 100
-ENEMY_WIDTH, ENEMY_HEIGHT = 80, 80
+BALLOON_WIDTH, BALLOON_HEIGHT = 80, 80
 
+BALLOON_HIT = pygame.USEREVENT
+WHITE = (255, 255, 255)
 
-all_sprites = pygame.sprite.Group()
-balloongroup = pygame.sprite.Group()
-seed(time())
-
-
-def random_start_direction():
-    if randint(0, 1):
-        return 1
-    else:
-        return -1
-
-# set up assets
+# Background
 BACKGROUND = pygame.image.load(os.path.join('assets', 'background.jpg'))
 BACKGROUND = pygame.transform.scale(BACKGROUND, (827, 570))
 
+# Player
 PLAYER_IMAGE = pygame.image.load(os.path.join('assets', 'pea_shooter.png'))
 PLAYER_IMAGE = pygame.transform.scale(PLAYER_IMAGE, (PLAYER_WIDTH, PLAYER_HEIGHT))
 
-ENEMY_IMAGE = pygame.image.load(os.path.join('assets', 'pokeball.png'))
-ENEMY_IMAGE = pygame.transform.scale(ENEMY_IMAGE, (ENEMY_WIDTH, ENEMY_HEIGHT))
+# Balloon
+BALLOON_IMAGE = pygame.image.load(os.path.join('assets', 'pokeball.png'))
+BALLOON_IMAGE = pygame.transform.scale(BALLOON_IMAGE, (BALLOON_WIDTH, BALLOON_HEIGHT))
 
-
-# initialise screen
+# Initialise screen
 pygame.init()
 clock = pygame.time.Clock()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+SCREEN = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pokeball Shooter")
 
+# Generates a random number between 0 - 5 inclusive for balloon movement
+def randomiser():
+    if randint(0, 5) == 0:
+        return True
 
-def draw_screen(player):
-    screen.blit(BACKGROUND, (0, 0))
-    screen.blit(PLAYER_IMAGE, (player.x, player.y))
-    pygame.display.update()
+def draw_screen(player, balloon, store_bullets):
+    SCREEN.blit(BACKGROUND, (0, 0))
+    SCREEN.blit(PLAYER_IMAGE, (player.x, player.y))
+    balloon.draw()
+    balloon.update()
 
+    for bullet in store_bullets:
+        pygame.draw.rect(SCREEN, WHITE, bullet)
+
+class Balloon(pygame.sprite.Sprite):
+    def __init__(self, vector):
+        pygame.sprite.Sprite.__init__(self)
+        image = BALLOON_IMAGE
+        self.image = image
+        self.rect = image.get_rect()
+        self.area = SCREEN.get_rect()
+        self.vector = vector
+        self.count = 0
+        self.rect.midright = (600, 100)
+
+    def draw(self):
+        SCREEN.blit(self.image, (self.rect.midright, self.rect.midright))
+
+    def update(self):
+        newpos = self.calcnewpos(self.rect, self.vector)
+        self.rect = newpos
+        (angle, z) = self.vector
+
+        if self.rect.bottom >= HEIGHT or self.rect.top <= 0:
+            angle = -angle
+
+        self.count += 1
+        self.vector = (angle,z)
+
+    def calcnewpos(self, rect, vector):
+        (angle, z) = vector
+        if self.count >= RANDOM_VAL:
+            if randomiser():
+                self.vector = (-angle, z)
+            self.count = 0
+        (dx, dy) = (z * 0, z * angle)
+        return rect.move(dx, dy)
 
 def handle_player_movement(press_keys, player):
     if press_keys[pygame.K_UP] and player.y - PLAYER_VEL > 0: # UP
@@ -80,61 +111,21 @@ def handle_player_movement(press_keys, player):
     if press_keys[pygame.K_DOWN] and player.y + PLAYER_VEL + player.height < HEIGHT - 40: # DOWN
         player.y += PLAYER_VEL
 
+def handle_bullets(store_bullets, player, balloon):
+    for bullet in store_bullets:
+        bullet.x += BULLET_VEL
+        if balloon.rect.left == bullet.right:
+            pygame.event.post(pygame.event.Event(BALLOON_HIT))
+            store_bullets.remove(bullet)
 
-class Balloon(pygame.sprite.Sprite):
-    def __init__(self, vector):
-        pygame.sprite.Sprite.__init__(self)
-        image = ENEMY_IMAGE
-        self.image = image
-        self.rect = image.get_rect()
-        self.area = screen.get_rect()
-        self.vector = vector
-        self.move_count = 0
-        self.rect.midright = self.area.midright
-
-    def update(self):
-        newpos = self.calcnewpos(self.rect, self.vector)
-        self.rect = newpos
-        (angle, z) = self.vector
-
-        if not self.area.contains(newpos):
-            tl = not self.area.collidepoint(newpos.topleft)
-            tr = not self.area.collidepoint(newpos.topright)
-            bl = not self.area.collidepoint(newpos.bottomleft)
-            br = not self.area.collidepoint(newpos.bottomright)
-            if tr and tl or (br and bl):
-                angle = -angle
-
-        self.vector = (angle,z)
-        self.move_count += 1
-
-    def calcnewpos(self, rect, vector):
-        (angle, z) = vector
-        if self.move_count >= FRAMES:
-            if self.random_direction():
-                self.vector = (-angle, z)
-            self.move_count = 0
-        (x, y) = (z * 0, z * angle)
-        return rect.move(x, y)
-
-    def random_direction(self):
-        if randint(0, RANDOM_CHANCE) == 0:
-            return True
-
-
-# main game loop
+# Main game loop
 def main():
 
-    # Set the game speed and random generator
-    speed = 2
-    seed(time())
-
-    # Initialise player and enemy
+    # Initialise player and balloon
     player = pygame.Rect(20, 400, PLAYER_WIDTH, PLAYER_HEIGHT)
-    balloon = Balloon((random_start_direction(), speed))
+    balloon = Balloon((1, BALLOON_VEL))
 
-    all_sprites.add(balloon)
-    balloongroup.add(balloon)
+    store_bullets = []
     
     run = True
     while run:
@@ -143,16 +134,21 @@ def main():
             if event.type == pygame.QUIT:
                 run = False
 
-        screen.blit(BACKGROUND, balloon.rect, balloon.rect)
-        all_sprites.update()
-
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    bullet = pygame.Rect(player.x + player.width, player.y + player.height//2 - 2, 10, 5)
+                    store_bullets.append(bullet)
+        
+        # Player movement
         press_keys = pygame.key.get_pressed()
         handle_player_movement(press_keys, player)
-        
-        draw_screen(player)
-        all_sprites.draw(screen)
-        pygame.display.flip()
 
+        handle_bullets(store_bullets, player, balloon)
+        
+        # Display assets on screen
+        draw_screen(player, balloon, store_bullets)
+        pygame.display.flip()
+        
     pygame.quit()
 
 
