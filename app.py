@@ -114,8 +114,8 @@ class Balloon(pygame.sprite.Sprite):
             if self.random_direction():
                 self.vector = (-angle, z)
             self.move_count = 0
-        (dx, dy) = (z * 0, z * angle)
-        return rect.move(dx, dy)
+        (x, y) = (z * 0, z * angle)
+        return rect.move(x, y)
 
     def random_direction(self):
         if randint(0, RANDOM_CHANCE) == 0:
