@@ -10,7 +10,7 @@
 #   Player can shoot one or multiple bullets at a time
 #   Game is over when the balloon is shot
 #
-#   ---------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------
 
 import pygame
 import os
@@ -65,9 +65,11 @@ def randomiser():
         return True
 
 # Draws everything onto the screen
-def draw_screen(player, store_bullets):
+def draw_screen(player, balloon, store_bullets):
     SCREEN.blit(BACKGROUND, (0, 0))
     SCREEN.blit(PLAYER_IMAGE, (player.x, player.y))
+    balloon_img.update()
+    balloon_img.draw(SCREEN)
 
     for bullet in store_bullets:
         SCREEN.blit(BULLET_IMAGE, (bullet.x, bullet.y))
@@ -77,7 +79,7 @@ def draw_winner(miss_count):
     game_over_text = GAME_OVER_FONT.render("You won! Number of misses: " + str(miss_count - 1), 1, WHITE)
     SCREEN.blit(game_over_text, (WIDTH/2 - game_over_text.get_width()/2, HEIGHT/2 - game_over_text.get_height()/2))
     pygame.display.update()
-    pygame.time.delay(5000)
+    pygame.time.delay(2000)
 
 class Balloon(pygame.sprite.Sprite):
     def __init__(self, vector):
@@ -165,9 +167,7 @@ def main():
         handle_bullets(store_bullets, balloon)
         
         # Display assets on screen
-        draw_screen(player, store_bullets)
-        balloon_img.update()
-        balloon_img.draw(SCREEN)
+        draw_screen(player, balloon, store_bullets)
         pygame.display.flip()
         
     pygame.quit()
